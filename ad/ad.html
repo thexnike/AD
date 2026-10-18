@@ -20,7 +20,7 @@ canvas { display: block; }
 //  3) UNLIMITED (letter slams) + DATA (glitch + big impact)
 //  Visuals and the synthesized soundtrack share the same timeline (T).
 // =====================================================================
-const W = 1080, H = 1920, FPS = 60, DURATION = 15;
+const W = 1080, H = 1920, FPS = 60;
 const BEAT = 60 / 128;
 const DROP = 5.0;
 const T = {
@@ -32,7 +32,12 @@ const T = {
   letterStep: BEAT / 2,
   data: DROP + BEAT * 14,
 };
-T.dataGlitches = [T.data + 1.15, T.data + 2.35];
+T.dataGlitches = [T.data + 1.15];
+T.price = T.data + BEAT * 4;          // "Starting from Rs.250 / month"
+T.roll1 = T.price + .95;              // price counter lands
+T.contact = T.price + BEAT * 7;       // WhatsApp contact
+T.logo = T.contact + BEAT * 8;        // V2HUB reveal
+const DURATION = +(T.logo + BEAT * 8).toFixed(3);
 
 const cvs = document.getElementById('c');
 const ctx = cvs.getContext('2d');
@@ -368,7 +373,7 @@ function drawShards(c, t) {
 //  SCENE 2 + 3 : energy background, Sinhala slams, UNLIMITED DATA
 // =====================================================================
 function beatPulse(t) {
-  const sections = [[DROP, T.s2exit], [T.data, DURATION]];
+  const sections = [[DROP, T.s2exit], [T.data, T.logo - BEAT]];
   for (const [a, b] of sections) if (t >= a && t < b) { const f = ((t - a) / BEAT) % 1; return Math.exp(-f * BEAT * 7); }
   if (t >= T.s3 && t < T.data) { const f = ((t - T.s3) / T.letterStep) % 1; return .6 * Math.exp(-f * T.letterStep * 12); }
   return 0;
@@ -691,16 +696,194 @@ function drawConfetti(c, t) {
   c.restore();
 }
 
+
+// =====================================================================
+//  SCENE 4: price   SCENE 5: WhatsApp contact   SCENE 6: V2HUB logo
+// =====================================================================
+const GOLD = { ex0: [150, 40, 170], ex1: [40, 6, 60], glow: 'rgba(255,190,40,.95)', stroke: 12, strokeColor: '#ffffff',
+  face: [[0, '#fffbe0'], [.3, '#ffe81a'], [.65, '#ffb000'], [1, '#ff5a1f']], extrude: 20 };
+let priceSize = 300; const priceCache = new Map();
+function priceArtFor(v) { if (!priceCache.has(v)) priceCache.set(v, makeArt(`Rs.${v}`, 'SIZEpx "AntonX"', priceSize, GOLD)); return priceCache.get(v); }
+let logoV2, logoHUB, logoX = [0, 0];
+function buildArt2() {
+  const m = mk(10, 10).getContext('2d'); m.font = '300px "AntonX"';
+  priceSize = Math.floor(300 * Math.min(1.25, 820 / m.measureText('Rs.250').width));
+  let ls = 360; m.font = `${ls}px "AntonX"`; ls = Math.floor(ls * Math.min(1, 880 / m.measureText('V2HUB').width)); m.font = `${ls}px "AntonX"`;
+  const w1 = m.measureText('V2').width, w2 = m.measureText('HUB').width, gap = 14, x0 = (W - (w1 + w2 + gap)) / 2;
+  logoX = [x0 + w1 / 2, x0 + w1 + gap + w2 / 2];
+  logoV2 = makeArt('V2', 'SIZEpx "AntonX"', ls, { ex0: [60, 20, 140], ex1: [12, 4, 40], glow: 'rgba(160,90,255,1)', stroke: 10, strokeColor: '#ffffff',
+    face: [[0, '#f6ecff'], [.35, '#c48bff'], [.7, '#8a3dff'], [1, '#3df5ff']], extrude: 18 });
+  logoHUB = makeArt('HUB', 'SIZEpx "AntonX"', ls, { ex0: [60, 20, 140], ex1: [12, 4, 40], glow: 'rgba(120,200,255,.9)', stroke: 10, strokeColor: '#ffffff',
+    face: [[0, '#ffffff'], [.6, '#eceaff'], [1, '#b9a6ff']], extrude: 18 });
+  logoV2.tint = [[255, 50, 120], [50, 230, 255]].map(col => { const cv = mk(logoV2.w, logoV2.h), c = cv.getContext('2d'); c.drawImage(logoV2.cv, 0, 0); c.globalCompositeOperation = 'source-in'; c.fillStyle = `rgb(${col})`; c.fillRect(0, 0, cv.width, cv.height); return { ...logoV2, cv }; });
+  logoHUB.tint = [[255, 50, 120], [50, 230, 255]].map(col => { const cv = mk(logoHUB.w, logoHUB.h), c = cv.getContext('2d'); c.drawImage(logoHUB.cv, 0, 0); c.globalCompositeOperation = 'source-in'; c.fillStyle = `rgb(${col})`; c.fillRect(0, 0, cv.width, cv.height); return { ...logoHUB, cv }; });
+  for (const v of [0, 250]) priceArtFor(v);
+}
+function neonCard(c, t, t0, cx, cy, w, h, col) {
+  const pe = prog(t, t0, .5); if (pe <= 0) return;
+  const sc = lerp(.7, 1, eBack(pe));
+  c.save(); c.translate(cx, cy); c.scale(sc, sc);
+  roundRect(c, -w / 2, -h / 2, w, h, 44); c.fillStyle = `rgba(18,6,42,${.55 * eOut(pe)})`; c.fill();
+  const per = 2 * (w + h), d = eOut(prog(t, t0, .7));
+  c.setLineDash([per * d, per]); c.lineWidth = 6; c.strokeStyle = rgba(col, .95); c.shadowColor = rgba(col, 1); c.shadowBlur = 34;
+  roundRect(c, -w / 2, -h / 2, w, h, 44); c.stroke();
+  c.setLineDash([]); c.shadowBlur = 0;
+  // corner glints
+  const gl = .6 + .4 * Math.sin(t * 6);
+  for (const [x, y] of [[-w / 2, -h / 2], [w / 2, h / 2]]) drawSparkle(c, x, y, 20 * d, t * 2, gl * d);
+  c.restore();
+}
+function spacedText(c, txt, x, y, font, spacing, fill, glow) {
+  c.save(); c.font = font; c.letterSpacing = spacing + 'px'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  if (glow) { c.shadowColor = glow; c.shadowBlur = 24; }
+  c.fillStyle = fill; c.fillText(txt, x + spacing / 2, y); c.restore();
+}
+function pill(c, x, y, w, h, fills, text, font, textCol, s, rot) {
+  c.save(); c.translate(x, y); c.rotate(rot || 0); c.scale(s, s);
+  roundRect(c, -w / 2 + 8, -h / 2 + 12, w, h, h / 2); c.fillStyle = 'rgba(0,0,0,.35)'; c.fill();
+  roundRect(c, -w / 2, -h / 2, w, h, h / 2);
+  const g = c.createLinearGradient(0, -h / 2, 0, h / 2); g.addColorStop(0, fills[0]); g.addColorStop(1, fills[1]); c.fillStyle = g; c.fill();
+  c.lineWidth = 6; c.strokeStyle = 'rgba(255,255,255,.9)'; c.stroke();
+  c.save(); roundRect(c, -w / 2, -h / 2, w, h, h / 2); c.clip(); const gl = c.createLinearGradient(0, -h / 2, 0, 0); gl.addColorStop(0, 'rgba(255,255,255,.45)'); gl.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = gl; c.fillRect(-w / 2, -h / 2, w, h / 2); c.restore();
+  if (text) { c.font = font; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = textCol; c.fillText(text, 0, 4); }
+  c.restore();
+}
+
+function drawPrice(c, t) {
+  if (t < T.price - .05 || t > T.contact + .02) return;
+  const out = eIn(prog(t, T.contact - .32, .32));
+  c.save(); c.translate(-out * 1300, 0); c.rotate(-out * .12);
+  neonCard(c, t, T.price, 540, 930, 960, 860, [255, 200, 60]);
+  const p1 = eOut(prog(t, T.price + .1, .45));
+  if (p1 > 0) { c.save(); c.globalAlpha = p1; spacedText(c, 'STARTING FROM', 540, 620 - (1 - p1) * 40, '800 64px "InterX"', lerp(40, 12, p1), '#ffffff', 'rgba(255,210,90,.9)'); c.restore();
+    c.save(); c.globalAlpha = p1; c.fillStyle = '#FFD60A'; c.fillRect(540 - 150 * p1, 672, 300 * p1, 6); c.restore(); }
+  // rolling price counter
+  if (t >= T.price + .3) {
+    const v = t < T.roll1 ? Math.round(250 * eOut(prog(t, T.price + .3, T.roll1 - T.price - .3))) : 250;
+    const art = priceArtFor(v);
+    let sc = 1, blur = 0;
+    if (t < T.roll1) { sc = .85 + .05 * Math.sin(t * 60); blur = 3; }
+    else { const k = t - T.roll1; sc = 1 + .28 * Math.exp(-k * 9) * Math.cos(k * 22); impactBurst(c, 540, 900, t, T.roll1, 1.1, [255, 200, 60]); }
+    sc *= 1 + .02 * beatPulse(t);
+    drawArt(c, art, 540, 900, sc, 0, 1, blur, (t - (T.roll1 + .7)) / .7);
+  }
+  // "/ month" pill
+  const pm = prog(t, T.roll1 + .2, .35);
+  if (pm > 0) pill(c, 540, 1175, 400, 124, ['#FF4FB8', '#D9127F'], '/ month', '800 72px "InterX"', '#ffffff', eBack(pm), .04 * Math.sin(t * 3));
+  c.restore();
+}
+
+function drawWAIcon(c, x, y, r) {
+  c.save(); c.translate(x, y);
+  c.lineWidth = r * .16; c.strokeStyle = '#fff'; c.lineJoin = 'round';
+  c.beginPath(); c.arc(0, 0, r, 0.72 * Math.PI, 0.62 * Math.PI + 2 * Math.PI * .98 - .2); c.lineTo(-r * 1.05, r * 1.05); c.closePath(); c.stroke();
+  c.lineWidth = r * .26; c.lineCap = 'round'; c.beginPath(); c.arc(-r * .02, r * .02, r * .42, .2 * Math.PI, 1.3 * Math.PI); c.stroke();
+  c.fillStyle = '#fff';
+  for (const a of [.2 * Math.PI, 1.3 * Math.PI]) { c.beginPath(); c.arc(-r * .02 + Math.cos(a) * r * .42, r * .02 + Math.sin(a) * r * .42, r * .19, 0, 6.283); c.fill(); }
+  c.restore();
+}
+const PHONE = '+94 74 128 7886';
+function drawContact(c, t) {
+  if (t < T.contact - .35 || t > T.logo + .02) return;
+  const inn = eOut(prog(t, T.contact - .35, .35)), out = eIn(prog(t, T.logo - .5, .45));
+  c.save(); c.translate(540, 930); c.scale(1 - out * .9, 1 - out * .9); c.rotate(out * .6); c.translate(-540 + (1 - inn) * 1300, -930);
+  c.globalAlpha = 1 - out * .7;
+  neonCard(c, t, T.contact - .2, 540, 930, 960, 880, [60, 230, 120]);
+  const h1 = eOut(prog(t, T.contact, .4));
+  if (h1 > 0) { c.save(); c.globalAlpha *= h1; spacedText(c, 'CONTACT US', 540, 610 - (1 - h1) * 40, '900 88px "InterX"', lerp(40, 10, h1), '#ffffff', 'rgba(90,255,150,.9)'); c.restore(); }
+  // WhatsApp pill with pulsing rings
+  const wp = prog(t, T.contact + .25, .35);
+  if (wp > 0) {
+    for (let k = 0; k < 2; k++) {
+      const rp = ((t - T.contact - .6) / .9 + k * .5) % 1;
+      if (t > T.contact + .6) { c.save(); c.strokeStyle = `rgba(80,255,150,${.6 * (1 - rp)})`; c.lineWidth = 5; roundRect(c, 540 - 330 - rp * 60, 815 - 80 - rp * 40, 660 + rp * 120, 160 + rp * 80, 80 + rp * 40); c.stroke(); c.restore(); }
+    }
+    const wig = t > T.contact + .7 && t < T.contact + 1.3 ? Math.sin(t * 60) * .05 * (1 - prog(t, T.contact + .7, .6)) : 0;
+    pill(c, 540, 815, 660, 160, ['#3BEA82', '#14A452'], null, '', '', eBack(wp), wig);
+    c.save(); c.translate(540, 815); c.scale(eBack(wp), eBack(wp)); c.rotate(wig);
+    drawWAIcon(c, -205, 4, 46);
+    c.font = '800 80px "InterX"'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#fff'; c.fillText('WhatsApp', 60, 6);
+    c.restore();
+  }
+  // phone number typed digit by digit
+  c.save(); c.font = '800 104px "InterX"'; let fs = 104; const tw = c.measureText(PHONE).width; if (tw > 880) fs = Math.floor(104 * 880 / tw); c.font = `800 ${fs}px "InterX"`;
+  let x = 540 - c.measureText(PHONE).width / 2; c.textBaseline = 'middle';
+  [...PHONE].forEach((ch, i) => {
+    const w = c.measureText(ch).width, st = T.contact + .7 + i * .055, pp = prog(t, st, .25);
+    if (pp > 0 && ch !== ' ') {
+      c.save(); c.translate(x + w / 2, 1060 - (1 - eOut(pp)) * 50); const sc = lerp(1.8, 1, eBack(pp)); c.scale(sc, sc);
+      c.globalAlpha *= clamp(pp * 3); c.shadowColor = 'rgba(80,255,150,.9)'; c.shadowBlur = 26 * (1.5 - pp);
+      c.fillStyle = `rgb(${mix3([120, 255, 170], [255, 255, 255], eOut(pp))})`; c.fillText(ch, -w / 2, 0); c.restore();
+    }
+    x += w;
+  });
+  c.restore();
+  const tp = eOut(prog(t, T.contact + 1.7, .4));
+  if (tp > 0) { c.save(); c.globalAlpha *= tp; spacedText(c, 'MESSAGE US NOW  →', 540, 1225 + (1 - tp) * 30, '700 50px "InterX"', 6, '#c9ffd9', null); c.restore(); }
+  c.restore();
+}
+
+const implode = [];
+{ const r = rng(321); for (let i = 0; i < 120; i++) implode.push({ a: r() * 6.283, d: 500 + r() * 900, s: 2 + r() * 4, col: r() < .5 ? [190, 140, 255] : [100, 230, 255], dl: r() * .25 }); }
+function drawLogo(c, t) {
+  const t0 = T.logo; if (t < t0 - .65) return;
+  const dk = smooth(t0 - .65, t0, t);
+  c.fillStyle = `rgba(4,2,14,${.62 * dk})`; c.fillRect(0, 0, W, H);
+  const CY = 930;
+  if (t < t0) {   // particles get sucked into the centre
+    c.save(); c.globalCompositeOperation = 'lighter'; c.lineCap = 'round';
+    for (const p of implode) {
+      const q = eIn(clamp((t - (t0 - .65) - p.dl) / (.65 - p.dl))); if (q <= 0) continue;
+      const r1 = p.d * (1 - q), r0 = r1 + 40 + 160 * q;
+      c.strokeStyle = rgba(p.col, .9 * q); c.lineWidth = p.s;
+      c.beginPath(); c.moveTo(540 + Math.cos(p.a) * r0, CY + Math.sin(p.a) * r0); c.lineTo(540 + Math.cos(p.a) * r1, CY + Math.sin(p.a) * r1); c.stroke();
+    }
+    const g = c.createRadialGradient(540, CY, 0, 540, CY, 160 * dk); g.addColorStop(0, `rgba(255,255,255,${dk})`); g.addColorStop(1, 'rgba(200,150,255,0)');
+    c.fillStyle = g; c.fillRect(0, 0, W, H); c.restore();
+  }
+  if (t < t0 - .2) return;
+  // emblem rings
+  const rp = eOut(prog(t, t0, .9));
+  if (rp > 0) {
+    c.save(); c.translate(540, CY); c.globalCompositeOperation = 'lighter';
+    c.save(); c.rotate(t * .25); c.beginPath();
+    for (let k = 0; k <= 6; k++) { const a = k / 6 * 6.283 - Math.PI / 2; c.lineTo(Math.cos(a) * 520, Math.sin(a) * 520); }
+    const per = 6 * 520; c.setLineDash([per * rp, per]); c.lineWidth = 7; c.strokeStyle = 'rgba(170,110,255,.9)'; c.shadowColor = 'rgba(170,110,255,1)'; c.shadowBlur = 30; c.stroke(); c.restore();
+    c.save(); c.rotate(-t * .4); c.setLineDash([30, 22]); c.lineWidth = 4; c.strokeStyle = `rgba(90,230,255,${.7 * rp})`; c.beginPath(); c.arc(0, 0, 585, 0, 6.283 * rp); c.stroke(); c.restore();
+    c.restore();
+  }
+  impactBurst(c, 540, CY, t, t0, 1.7, [190, 130, 255]); impactBurst(c, 540, CY, t, t0 + .1, 1.1, [90, 230, 255]);
+  // V2 + HUB slam together
+  const parts = [[logoV2, logoX[0], -1], [logoHUB, logoX[1], 1]];
+  for (const [art, x, dir] of parts) {
+    let xx = x, sc = 1, bl = 0;
+    if (t < t0) { const p = eIn(prog(t, t0 - .2, .2)); xx = lerp(540 + dir * 1100, x, p); bl = (1 - p) * 16; sc = lerp(1.4, 1, p); }
+    else { const k = t - t0; sc = 1 + .22 * Math.exp(-k * 7) * Math.cos(k * 20) + .015 * Math.sin(t * 3); }
+    const ab = t >= t0 ? 34 * Math.exp(-(t - t0) * 5) : 34;   // chromatic split
+    if (ab > 1) { c.save(); c.globalCompositeOperation = 'lighter'; drawArt(c, art.tint[0], xx - ab, CY, sc, 0, .6, bl, null); drawArt(c, art.tint[1], xx + ab, CY, sc, 0, .6, bl, null); c.restore(); }
+    drawArt(c, art, xx, CY, sc, 0, 1, bl, (t - (t0 + .9 + (dir > 0 ? .12 : 0))) / .6);
+  }
+  // horizontal lens flare
+  const fl = Math.exp(-Math.max(0, t - t0) * 3.5) * (t >= t0 ? 1 : 0);
+  if (fl > .02) { c.save(); c.globalCompositeOperation = 'lighter'; const g = c.createLinearGradient(0, 0, W, 0); g.addColorStop(0, 'rgba(120,200,255,0)'); g.addColorStop(.5, `rgba(230,210,255,${.9 * fl})`); g.addColorStop(1, 'rgba(120,200,255,0)'); c.fillStyle = g; c.fillRect(0, CY - 6, W, 12); c.restore(); drawSparkle(c, 540, CY, 90 * fl, t, fl); }
+  // tagline
+  const tg = eOut(prog(t, t0 + 1.1, .5));
+  if (tg > 0) { c.save(); c.globalAlpha = tg; spacedText(c, 'UNLIMITED DATA  •  LOWEST PRICE', 540, CY + 250 + (1 - tg) * 30, '700 40px "InterX"', lerp(30, 8, tg), '#e6dcff', 'rgba(170,110,255,.9)'); c.restore();
+    c.save(); c.globalAlpha = tg; c.fillStyle = 'rgba(200,170,255,.8)'; c.fillRect(540 - 260 * tg, CY + 205, 520 * tg, 3); c.restore(); }
+  // gentle orbiting sparkles while the logo holds
+  if (t > t0 + .5) for (let k = 0; k < 3; k++) { const a = t * 1.2 + k * 2.094; drawSparkle(c, 540 + Math.cos(a) * 560, CY + Math.sin(a) * 300, 16, t * 3, .8); }
+}
+
 // ---------------- camera shake & flashes ----------------
 const IMPACTS = [[T.click, 10, 14], [DROP, 46, 6], ...T.w.map(w => [w, 26, 9]),
-  ...[...Array(9)].map((_, i) => [T.s3 + i * T.letterStep, 9, 14]), [T.data, 52, 5]];
+  ...[...Array(9)].map((_, i) => [T.s3 + i * T.letterStep, 9, 14]), [T.data, 52, 5], [T.roll1, 30, 7], [T.contact, 16, 8], [T.logo, 55, 4]];
 function shake(t) {
   let A = 0; for (const [ti, amp, dec] of IMPACTS) if (t >= ti) A += amp * Math.exp(-(t - ti) * dec);
   if (t > T.click + .5 && t < DROP) A += 3 * smooth(T.click + .5, DROP, t); // tension tremble
   return { x: A * Math.sin(t * 83.1) * Math.cos(t * 31.7), y: A * Math.sin(t * 71.3 + 1), r: A * .0009 * Math.sin(t * 47.0), A };
 }
 function flashes(c, t) {
-  const list = [[DROP, .7, 6, [235, 210, 255]], [T.s3, .6, 7, [210, 235, 255]], [T.data, .8, 5, [255, 220, 250]], [T.click, .25, 14, [255, 255, 255]]];
+  const list = [[DROP, .7, 6, [235, 210, 255]], [T.s3, .6, 7, [210, 235, 255]], [T.data, .8, 5, [255, 220, 250]], [T.click, .25, 14, [255, 255, 255]], [T.roll1, .35, 8, [255, 230, 150]], [T.logo, .95, 4, [245, 235, 255]]];
   for (const [ti, a, dec, col] of list) if (t >= ti) { const v = a * Math.exp(-(t - ti) * dec); if (v > .01) { c.fillStyle = rgba(col, v); c.fillRect(0, 0, W, H); } }
   const pre = smooth(T.s2exit + .2, T.s3, t) * (t < T.s3 ? 1 : 0); // white-out before scene 3
   if (pre > 0) { c.fillStyle = `rgba(240,230,255,${pre * .85})`; c.fillRect(0, 0, W, H); }
@@ -719,6 +902,7 @@ function finish(c, t) {
 
 // ---------------- main frame ----------------
 let snapFrozen = false;
+const exLayer = mk(W, H), exCtx = exLayer.getContext('2d');
 window.renderFrame = function (t) {
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
@@ -733,7 +917,13 @@ window.renderFrame = function (t) {
   } else {
     drawEnergyBg(ctx, t);
     if (t < T.s3 + .1) drawWords(ctx, t);
-    if (t >= T.s3 - .2) { drawUnlimited(ctx, t); drawData(ctx, t); }
+    if (t >= T.s3 - .2 && t < T.price + .02) {
+      const ex = eIn(prog(t, T.price - .3, .3));
+      if (ex <= 0) { drawUnlimited(ctx, t); drawData(ctx, t); }
+      else { exCtx.clearRect(0, 0, W, H); drawUnlimited(exCtx, t); drawData(exCtx, t);
+        ctx.save(); ctx.globalAlpha = 1 - ex; ctx.translate(540, 960); ctx.scale(1 + ex * 1.8, 1 + ex * 1.8); ctx.translate(-540, -960); ctx.filter = `blur(${(ex * 14).toFixed(1)}px)`; ctx.drawImage(exLayer, 0, 0); ctx.restore(); }
+    }
+    drawPrice(ctx, t); drawContact(ctx, t); drawLogo(ctx, t);
     if (t < DROP + 1.6) {
       if (!snapFrozen) { renderScene1(snapCtx, DROP - 1 / FPS); snapFrozen = true; }
       drawShards(ctx, t);
@@ -951,22 +1141,49 @@ async function buildAudio() {
   // DROP 2: DATA
   impact(T.data, 1); crash(T.data, .35); shatterSfx(T.data + .01);
   for (const gt of T.dataGlitches) for (let k = 0; k < 3; k++) zap(gt + k * .03, 400 + rr() * 2000);
-  for (let b = 0; T.data + b * BEAT < DURATION - .05; b++) {
+  for (let b = 0; T.data + b * BEAT < T.logo - BEAT - .05; b++) {
     const t = T.data + b * BEAT; kick(t, 1);
     hat(t + BEAT / 2, .22); hat(t + BEAT / 4, .07); hat(t + BEAT * .75, .07);
     const root = b < 4 ? 110 : 87.31, ch = b < 4 ? AM : F;
     bass(t + BEAT / 2, root * 2, BEAT / 2 - .01, .16); bass(t + BEAT * .75, root * 2, BEAT / 4 - .01, .12);
     for (let s = 0; s < 4; s++) pluck(t + s * BEAT / 4, ch[(b * 4 + s) % 3] * (s === 3 ? 4 : 2), .05, s % 2 ? .4 : -.4);
   }
-  pad(T.data, BEAT * 4, AM, .035); pad(T.data + BEAT * 4, DURATION - T.data - BEAT * 4, F, .035);
-  dropSection(T.data, Math.ceil((DURATION - T.data) / BEAT), true);
+  pad(T.data, BEAT * 4, AM, .035); pad(T.data + BEAT * 4, T.logo - T.data - BEAT * 4.5, F, .035);
+  dropSection(T.data, Math.round((T.logo - BEAT - T.data) / BEAT), true);
+
+  // ---- v3: price / contact / logo sound design ----
+  function coin(t) { [1975.5, 2637, 3951].forEach((f, i) => { const out = pan(i - 1, master); send(out, 1); osc('sine', f, t + i * .07, .9, gainEnv(t + i * .07, .002, .09, .8, out)); osc('triangle', f * 2.01, t + i * .07, .4, gainEnv(t + i * .07, .002, .03, .3, out)); }); }
+  function pop(t, v = .35) { const g = gainEnv(t, .002, v, .12, master); send(g, .4); const o = osc('sine', 900, t, .15, g); o.frequency.exponentialRampToValueAtTime(260, t + .1); }
+  function notify(t) { [[0, 1046.5], [.13, 1568]].forEach(([d, f]) => { const g = gainEnv(t + d, .003, .14, .35, master); send(g, .7); osc('sine', f, t + d, .4, g); osc('sine', f * 2, t + d, .2, gainEnv(t + d, .003, .03, .15, master)); }); }
+  function slotTick(t) { noiseSrc(t, .02, filt('bandpass', 2600 + rr() * 900, 4, gainEnv(t, .001, .22, .025, pan((rr() - .5) * .6, master)))); }
+  function suck(t0, t1) { const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 2; bp.frequency.setValueAtTime(8000, t0); bp.frequency.exponentialRampToValueAtTime(300, t1);
+    const g = ac.createGain(); g.gain.setValueAtTime(.0001, t0); g.gain.exponentialRampToValueAtTime(.35, t1 - .02); g.gain.linearRampToValueAtTime(0, t1); bp.connect(g); g.connect(master); noiseSrc(t0, t1 - t0, bp); }
+  // price
+  whoosh(T.price - .32, .32, .3, 300, 7000);
+  whoosh(T.price + .05, .4, .1, 1500, 6000);
+  for (let k = 0; k < 16; k++) slotTick(T.price + .3 + (T.roll1 - T.price - .3) * Math.pow(k / 16, 1.7));
+  impact(T.roll1, .75); coin(T.roll1); crash(T.roll1, .18);
+  pop(T.roll1 + .2, .3); whoosh(T.roll1 + .7, .5, .08, 3000, 10000);
+  // contact
+  whoosh(T.contact - .35, .35, .28, 300, 6500); impact(T.contact, .4);
+  pop(T.contact + .25, .35); notify(T.contact + .5);
+  [...PHONE].forEach((ch, i) => { if (ch !== ' ') tick(T.contact + .7 + i * .055); });
+  pop(T.contact + 1.7, .15);
+  // logo reveal
+  suck(T.logo - .65, T.logo); revCymbal(T.logo, 1.2, .3);
+  whoosh(T.logo - .2, .2, .3, 400, 8000);
+  impact(T.logo, 1.15); crash(T.logo, .4); sub808(T.logo, 41.2, 2.6, .6); sparkleSfx(T.logo + .05);
+  pad(T.logo, DURATION - T.logo, [220, 329.63, 440, 523.25, 659.25], .045);
+  for (const [d, f] of [[0, 880], [.5, 1318.5], [1, 1760]]) pluck(T.logo + .9 + d, f, .05, d - .5);
+  whoosh(T.logo + .9, .6, .1, 2500, 10000);
+  sparkleSfx(T.logo + 2.2);
   return await ac.startRendering();
 }
 
 window.sceneInfo = { W, H, FPS, DURATION };
 window.ready = (async () => {
-  await Promise.all([document.fonts.load('600 96px "InterX"'), document.fonts.load('800 200px "SinX"'), document.fonts.load('200px "AntonX"')]);
-  s1ComputeLayout(); buildShards(); buildArt();
+  await Promise.all([document.fonts.load('600 96px "InterX"'), document.fonts.load('800 200px "SinX"'), document.fonts.load('200px "AntonX"'), document.fonts.load('800 80px "InterX"'), document.fonts.load('900 80px "InterX"')]);
+  s1ComputeLayout(); buildShards(); buildArt(); buildArt2();
   renderFrame(0);
 })();
 window.buildAudio = buildAudio;
