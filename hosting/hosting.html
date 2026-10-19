@@ -221,7 +221,7 @@ async function buildAudio() {
   const pan = (p, dest) => { const s = ac.createStereoPanner(); s.pan.value = p; s.connect(dest); return s; };
   const send = (node, amt) => { const g = ac.createGain(); g.gain.value = amt; node.connect(g); g.connect(verb); };
   const osc = (type, f, t, dur, dest) => { const o = ac.createOscillator(); o.type = type; o.frequency.setValueAtTime(f, t); o.connect(dest); o.start(t); o.stop(t + dur + .05); return o; };
-  const filt = (type, f, q, dest) => { const b = ac.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; b.connect(dest); return b; };
+  const filt = (type, f, q, dest) => { const b = ac.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; if (dest) b.connect(dest); return b; };
   const noise = (t, dur, dest) => { const s = ac.createBufferSource(); s.buffer = nb; s.loop = true; s.connect(dest); s.start(t, rr()); s.stop(t + dur + .05); };
 
   // ---- music bed (88 BPM feel, Fmaj7 - Am7 - Cmaj7 - G6) ----
