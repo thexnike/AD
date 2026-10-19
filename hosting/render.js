@@ -13,6 +13,9 @@ const [scene = 'hosting.html', out = 'out.mp4', previews = '', scale = '2'] = pr
   page.on('console', m => console.log('[page]', m.text()));
   page.on('pageerror', e => console.log('[pageerror]', e.message));
   await page.goto('file://' + path.resolve(scene) + '?scale=' + scale);
+  const voFiles = ['vo/vo1.wav', 'vo/vo2.wav'].filter(f => fs.existsSync(path.join(path.dirname(path.resolve(scene)), f)));
+  const vo = voFiles.map(f => fs.readFileSync(path.join(path.dirname(path.resolve(scene)), f)).toString('base64'));
+  await page.evaluate(v => { window.VO_B64 = v; }, vo);
   await page.evaluate(() => window.ready);
 
   for (const t of previews.split(',').filter(Boolean)) {
